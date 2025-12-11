@@ -9,13 +9,47 @@ const cleanJsonString = (str: string) => {
   return str.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
 };
 
+/**
+ * Safely retrieves the API Key from various environment locations.
+ * Prioritizes process.env.API_KEY (AI Studio), then standard Vercel/Vite/Next.js prefixes.
+ */
+const getApiKey = (): string => {
+  // 1. Try standard process.env (AI Studio / Node)
+  try {
+    if (typeof process !== 'undefined' && process.env?.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {}
+
+  // 2. Try Vite (import.meta.env)
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_API_KEY;
+    }
+  } catch (e) {}
+  
+  // 3. Try Next.js Public
+  try {
+    if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_KEY) {
+      return process.env.NEXT_PUBLIC_API_KEY;
+    }
+  } catch (e) {}
+
+  return '';
+};
+
 export const lookupWord = async (
   text: string,
   nativeLang: string,
   targetLang: string
 ): Promise<Partial<DictionaryEntry>> => {
-  // Initialize client inside the function to ensure process.env.API_KEY is available
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Missing API Key. Please check your environment variables (API_KEY, VITE_API_KEY, or NEXT_PUBLIC_API_KEY).");
+
+  // Initialize client inside the function to ensure the latest key is used
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `
     Define the following text: "${text}".
@@ -71,7 +105,10 @@ export const lookupWord = async (
 };
 
 export const generateVisualization = async (term: string): Promise<string | null> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) return null; // Fail silently for images if key missing
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const prompt = `A bright, fun, flat vector art style illustration representing the concept of "${term}". Simple shapes, vibrant pop colors (pink, yellow, cyan). White background.`;
     
@@ -98,7 +135,10 @@ export const generateVisualization = async (term: string): Promise<string | null
 };
 
 export const speakText = async (text: string, voiceName: string = 'Kore') => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
@@ -125,7 +165,10 @@ export const speakText = async (text: string, voiceName: string = 'Kore') => {
 };
 
 export const generateStory = async (words: string[], nativeLang: string): Promise<StoryResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Missing API Key");
+
+  const ai = new GoogleGenAI({ apiKey });
   const wordsStr = words.join(", ");
   const prompt = `
     Write a short, funny, and memorable story (max 150 words) that incorporates the following words: ${wordsStr}.
