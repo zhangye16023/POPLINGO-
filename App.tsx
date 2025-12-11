@@ -122,8 +122,8 @@ const App: React.FC = () => {
       console.error(error);
       const msg = error?.message || "Unknown error";
       
-      if (msg.includes("API Key") || msg.includes("API_KEY")) {
-        alert("Missing API Key! If on Vercel, try adding 'VITE_API_KEY' (for Vite projects) or 'NEXT_PUBLIC_API_KEY' (for Next.js) to Environment Variables instead of just 'API_KEY'.");
+      if (msg.includes("API Key") || msg.includes("API_KEY") || msg.includes("environment variables")) {
+        alert("Missing API Key!\n\n1. Did you set VITE_API_KEY (or NEXT_PUBLIC_API_KEY) in your environment variables?\n2. IMPORTANT: Did you REDEPLOY your app after adding the key? Environment variables are only embedded during the build process.");
       } else {
         alert(`Oops! The AI got a bit confused. Error: ${msg}`);
       }

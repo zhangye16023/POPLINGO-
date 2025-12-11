@@ -14,7 +14,7 @@ const cleanJsonString = (str: string) => {
  * Prioritizes process.env.API_KEY (AI Studio), then standard Vercel/Vite/Next.js prefixes.
  */
 const getApiKey = (): string => {
-  // 1. Try standard process.env (AI Studio / Node)
+  // 1. Try standard process.env (AI Studio / Node / Webpack defined)
   try {
     if (typeof process !== 'undefined' && process.env?.API_KEY) {
       return process.env.API_KEY;
@@ -24,9 +24,11 @@ const getApiKey = (): string => {
   // 2. Try Vite (import.meta.env)
   try {
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      return import.meta.env.VITE_API_KEY;
+      if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+      // @ts-ignore
+      if (import.meta.env.API_KEY) return import.meta.env.API_KEY;
     }
   } catch (e) {}
   
@@ -34,6 +36,13 @@ const getApiKey = (): string => {
   try {
     if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_KEY) {
       return process.env.NEXT_PUBLIC_API_KEY;
+    }
+  } catch (e) {}
+
+  // 4. Try Create React App
+  try {
+    if (typeof process !== 'undefined' && process.env?.REACT_APP_API_KEY) {
+      return process.env.REACT_APP_API_KEY;
     }
   } catch (e) {}
 
@@ -46,7 +55,7 @@ export const lookupWord = async (
   targetLang: string
 ): Promise<Partial<DictionaryEntry>> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("Missing API Key. Please check your environment variables (API_KEY, VITE_API_KEY, or NEXT_PUBLIC_API_KEY).");
+  if (!apiKey) throw new Error("Missing API Key. Please check your environment variables (VITE_API_KEY for Vite, NEXT_PUBLIC_API_KEY for Next.js, or REACT_APP_API_KEY for CRA). Did you redeploy after adding them?");
 
   // Initialize client inside the function to ensure the latest key is used
   const ai = new GoogleGenAI({ apiKey });
