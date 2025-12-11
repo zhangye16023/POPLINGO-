@@ -2,11 +2,7 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { DictionaryEntry, StoryResult } from "../types";
 import { playPCMAudio } from "./audioUtils";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
-
-if (!API_KEY) {
-  console.error("VITE_GEMINI_API_KEY is not set");
-}
+const API_KEY = process.env.API_KEY || '';
 
 // Singleton instance
 let ai: GoogleGenAI | null = null;
