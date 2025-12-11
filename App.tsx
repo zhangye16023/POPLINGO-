@@ -2,19 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Search, Book, Brain, ArrowRight, Save, Trash2, 
-  Sparkles, RotateCcw, Menu, X 
+  Sparkles, RotateCcw, Menu, X, Settings 
 } from 'lucide-react';
 import { LANGUAGES, MOCK_IMAGE_PLACEHOLDER } from './constants';
 import { DictionaryEntry, AppMode, StoryResult } from './types';
 import * as GeminiService from './services/geminiService';
 import { AudioButton } from './components/AudioButton';
 import { Flashcard } from './components/Flashcard';
+import { Onboarding } from './components/Onboarding';
 
 const App: React.FC = () => {
   // State
+  const [isOnboarding, setIsOnboarding] = useState(true);
   const [mode, setMode] = useState<AppMode>(AppMode.SEARCH);
-  const [nativeLang, setNativeLang] = useState('en');
-  const [targetLang, setTargetLang] = useState('es');
+  
+  // Initialize langs from localStorage or default
+  const [nativeLang, setNativeLang] = useState(() => localStorage.getItem('poplingo_native') || 'en');
+  const [targetLang, setTargetLang] = useState(() => localStorage.getItem('poplingo_target') || 'es');
+  
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentResult, setCurrentResult] = useState<DictionaryEntry | null>(null);
@@ -23,8 +28,14 @@ const App: React.FC = () => {
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [studyIndex, setStudyIndex] = useState(0);
 
-  // Load notebook from localStorage
   useEffect(() => {
+    // Check if user has completed onboarding before
+    const hasOnboarded = localStorage.getItem('poplingo_onboarded');
+    if (hasOnboarded) {
+      setIsOnboarding(false);
+    }
+    
+    // Load notebook
     const saved = localStorage.getItem('poplingo_notebook');
     if (saved) {
       setNotebook(JSON.parse(saved));
@@ -35,6 +46,23 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('poplingo_notebook', JSON.stringify(notebook));
   }, [notebook]);
+
+  // Save language preferences whenever they change
+  useEffect(() => {
+    localStorage.setItem('poplingo_native', nativeLang);
+    localStorage.setItem('poplingo_target', targetLang);
+  }, [nativeLang, targetLang]);
+
+  const completeOnboarding = () => {
+    localStorage.setItem('poplingo_onboarded', 'true');
+    setIsOnboarding(false);
+  };
+
+  const handleReset = () => {
+    if(confirm("Change languages? This will take you back to the setup screen.")) {
+      setIsOnboarding(true);
+    }
+  };
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -104,7 +132,7 @@ const App: React.FC = () => {
         <h1 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pop-pink to-pop-yellow cursor-pointer" onClick={() => setMode(AppMode.SEARCH)}>
           PopLingo
         </h1>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <button 
             onClick={() => setMode(AppMode.SEARCH)}
             className={`p-2 rounded-xl transition-colors ${mode === AppMode.SEARCH ? 'bg-pop-light text-pop-cyan' : 'text-gray-400'}`}
@@ -123,6 +151,14 @@ const App: React.FC = () => {
           >
             <Brain size={24} />
           </button>
+          <div className="w-px h-6 bg-gray-200 mx-1"></div>
+          <button 
+             onClick={handleReset}
+             className="p-2 rounded-xl text-gray-300 hover:text-pop-dark hover:bg-gray-100 transition-all"
+             title="Change Languages"
+          >
+            <Settings size={20} />
+          </button>
         </div>
       </div>
     </header>
@@ -130,30 +166,13 @@ const App: React.FC = () => {
 
   const renderSearch = () => (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Language Selector */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-        <div className="flex flex-col flex-1">
-            <label className="text-xs text-gray-400 font-bold mb-1 uppercase">I speak</label>
-            <select 
-              value={nativeLang} 
-              onChange={(e) => setNativeLang(e.target.value)}
-              className="bg-transparent font-bold text-pop-dark focus:outline-none"
-            >
-              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-            </select>
-        </div>
-        <ArrowRight className="text-gray-300 mx-2" size={20} />
-        <div className="flex flex-col flex-1 text-right">
-            <label className="text-xs text-gray-400 font-bold mb-1 uppercase">I'm learning</label>
-            <select 
-              value={targetLang} 
-              onChange={(e) => setTargetLang(e.target.value)}
-              className="bg-transparent font-bold text-pop-cyan focus:outline-none text-right"
-              dir="rtl"
-            >
-              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.flag} {l.name}</option>)}
-            </select>
-        </div>
+      {/* Language Indicator */}
+      <div className="flex items-center justify-center gap-4 py-2">
+         <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100 text-sm font-bold text-gray-500">
+            <span>{LANGUAGES.find(l => l.code === nativeLang)?.flag}</span>
+            <ArrowRight size={14} />
+            <span>{LANGUAGES.find(l => l.code === targetLang)?.flag}</span>
+         </div>
       </div>
 
       {/* Search Bar */}
@@ -162,7 +181,7 @@ const App: React.FC = () => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type a word, phrase, or sentence..."
+          placeholder={`Type a word in ${LANGUAGES.find(l => l.code === targetLang)?.name}...`}
           className="w-full bg-white text-lg font-medium text-pop-dark p-6 rounded-2xl shadow-lg border-2 border-transparent focus:border-pop-yellow focus:outline-none transition-all placeholder:text-gray-300"
         />
         <button 
@@ -352,6 +371,18 @@ const App: React.FC = () => {
       )}
     </div>
   );
+
+  if (isOnboarding) {
+    return (
+      <Onboarding 
+        nativeLang={nativeLang}
+        targetLang={targetLang}
+        setNativeLang={setNativeLang}
+        setTargetLang={setTargetLang}
+        onComplete={completeOnboarding}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F9FC] text-pop-dark font-sans selection:bg-pop-yellow selection:text-pop-dark">
