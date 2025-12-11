@@ -2,7 +2,19 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { DictionaryEntry, StoryResult } from "../types";
 import { playPCMAudio } from "./audioUtils";
 
-const API_KEY = process.env.API_KEY || '';
+// Safely access process.env to prevent crashes in browser environments
+const getApiKey = () => {
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env.API_KEY || '';
+    }
+  } catch (e) {
+    console.warn("Failed to read process.env");
+  }
+  return '';
+};
+
+const API_KEY = getApiKey();
 
 // Singleton instance
 let ai: GoogleGenAI | null = null;

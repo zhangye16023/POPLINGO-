@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
 import { 
   Search, Book, Brain, ArrowRight, Save, Trash2, 
-  Sparkles, RotateCcw, Menu, X, Settings 
+  Sparkles, Settings 
 } from 'lucide-react';
-import { LANGUAGES, MOCK_IMAGE_PLACEHOLDER } from './constants';
+import { LANGUAGES } from './constants';
 import { DictionaryEntry, AppMode, StoryResult } from './types';
 import * as GeminiService from './services/geminiService';
 import { AudioButton } from './components/AudioButton';
@@ -397,5 +396,4 @@ const App: React.FC = () => {
   );
 };
 
-const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+export default App;
