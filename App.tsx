@@ -91,8 +91,10 @@ const App: React.FC = () => {
       };
 
       setCurrentResult(newEntry);
-    } catch (error) {
-      alert("Oops! The AI got a bit confused. Try again!");
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.message || "Unknown error";
+      alert(`Oops! The AI got a bit confused. Error: ${msg}`);
     } finally {
       setIsLoading(false);
     }
@@ -118,8 +120,9 @@ const App: React.FC = () => {
       const words = notebook.slice(0, 5).map(n => n.term); // Take recent 5
       const result = await GeminiService.generateStory(words, LANGUAGES.find(l => l.code === nativeLang)?.name || 'English');
       setStory(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`Story generation failed: ${err.message}`);
     } finally {
       setIsGeneratingStory(false);
     }

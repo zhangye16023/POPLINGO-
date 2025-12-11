@@ -2,6 +2,13 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { DictionaryEntry, StoryResult } from "../types";
 import { playPCMAudio } from "./audioUtils";
 
+/**
+ * Helper to clean JSON string if the model returns markdown code blocks
+ */
+const cleanJsonString = (str: string) => {
+  return str.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+};
+
 export const lookupWord = async (
   text: string,
   nativeLang: string,
@@ -51,7 +58,12 @@ export const lookupWord = async (
     const textResponse = response.text;
     if (!textResponse) throw new Error("No response from AI");
     
-    return JSON.parse(textResponse);
+    try {
+      return JSON.parse(cleanJsonString(textResponse));
+    } catch (e) {
+      console.error("JSON Parse Error:", e, "Raw:", textResponse);
+      throw new Error("Failed to parse AI response.");
+    }
   } catch (error) {
     console.error("Lookup failed:", error);
     throw error;
@@ -68,17 +80,19 @@ export const generateVisualization = async (term: string): Promise<string | null
       contents: prompt,
     });
 
-    // Iterate to find image part
-    if (response.candidates && response.candidates[0].content.parts) {
+    // Iterate to find image part, checking for valid candidates
+    if (response.candidates && response.candidates.length > 0 && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData && part.inlineData.data) {
           return part.inlineData.data;
         }
       }
     }
+    console.warn("No image data found in response");
     return null;
   } catch (error) {
     console.error("Image generation failed:", error);
+    // Return null instead of throwing so we don't block the dictionary lookup
     return null;
   }
 };
@@ -137,7 +151,9 @@ export const generateStory = async (words: string[], nativeLang: string): Promis
     });
     
     const text = response.text;
-    return text ? JSON.parse(text) : { title: "Error", story: "Could not generate story." };
+    if (!text) throw new Error("No story generated");
+    
+    return JSON.parse(cleanJsonString(text));
   } catch (error) {
     console.error("Story generation failed:", error);
     throw error;
