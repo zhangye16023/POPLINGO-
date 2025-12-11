@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, Book, Brain, ArrowRight, Save, Trash2, 
-  Sparkles, Settings 
+  Sparkles, Settings, Key 
 } from 'lucide-react';
 import { LANGUAGES } from './constants';
 import { DictionaryEntry, AppMode, StoryResult } from './types';
@@ -12,6 +12,7 @@ import { Onboarding } from './components/Onboarding';
 
 const App: React.FC = () => {
   // State
+  const [needsApiKey, setNeedsApiKey] = useState(false);
   const [isOnboarding, setIsOnboarding] = useState(true);
   const [mode, setMode] = useState<AppMode>(AppMode.SEARCH);
   
@@ -28,6 +29,17 @@ const App: React.FC = () => {
   const [studyIndex, setStudyIndex] = useState(0);
 
   useEffect(() => {
+    // Check for API Key in AI Studio environment
+    const checkApiKey = async () => {
+      if (window.aistudio) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          setNeedsApiKey(true);
+        }
+      }
+    };
+    checkApiKey();
+
     // Check if user has completed onboarding before
     const hasOnboarded = localStorage.getItem('poplingo_onboarded');
     if (hasOnboarded) {
@@ -51,6 +63,21 @@ const App: React.FC = () => {
     localStorage.setItem('poplingo_native', nativeLang);
     localStorage.setItem('poplingo_target', targetLang);
   }, [nativeLang, targetLang]);
+
+  const handleConnectApiKey = async () => {
+    if (window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        // Assume success and proceed to mitigate race condition
+        setNeedsApiKey(false);
+      } catch (e) {
+        console.error("API Key selection failed", e);
+        // Reset to allow trying again
+        setNeedsApiKey(true);
+        alert("Failed to select API Key. Please try again.");
+      }
+    }
+  };
 
   const completeOnboarding = () => {
     localStorage.setItem('poplingo_onboarded', 'true');
@@ -94,7 +121,12 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error(error);
       const msg = error?.message || "Unknown error";
-      alert(`Oops! The AI got a bit confused. Error: ${msg}`);
+      
+      if (msg.includes("API Key") || msg.includes("API_KEY")) {
+        alert("Missing API Key! If you are deployed on Vercel, please go to your Project Settings > Environment Variables and add 'API_KEY'.");
+      } else {
+        alert(`Oops! The AI got a bit confused. Error: ${msg}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -374,6 +406,33 @@ const App: React.FC = () => {
     </div>
   );
 
+  // 1. API Key Selection (Priority)
+  if (needsApiKey) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white animate-in fade-in duration-700">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <div className="w-20 h-20 bg-pop-cyan rounded-3xl mx-auto flex items-center justify-center shadow-lg mb-6">
+            <Key size={40} className="text-white" />
+          </div>
+          <div className="space-y-2">
+             <h1 className="text-3xl font-black text-pop-dark">Connect AI</h1>
+             <p className="text-gray-400 font-medium">We need to connect your Google API Key to power the dictionary.</p>
+          </div>
+          <button 
+            onClick={handleConnectApiKey}
+            className="w-full bg-pop-dark text-white p-4 rounded-2xl font-bold text-lg hover:scale-105 active:scale-95 transition-all shadow-xl hover:shadow-2xl"
+          >
+            Connect API Key
+          </button>
+          <div className="text-xs text-gray-300 px-8">
+            This will open a dialog to select your key from Google AI Studio.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Onboarding
   if (isOnboarding) {
     return (
       <Onboarding 
@@ -386,6 +445,7 @@ const App: React.FC = () => {
     );
   }
 
+  // 3. Main App
   return (
     <div className="min-h-screen bg-[#F7F9FC] text-pop-dark font-sans selection:bg-pop-yellow selection:text-pop-dark">
       {renderHeader()}
