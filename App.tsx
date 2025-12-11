@@ -10,6 +10,14 @@ import { AudioButton } from './components/AudioButton';
 import { Flashcard } from './components/Flashcard';
 import { Onboarding } from './components/Onboarding';
 
+// Helper for generating safe IDs (fallback for older browsers)
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
 const App: React.FC = () => {
   // State
   const [needsApiKey, setNeedsApiKey] = useState(false);
@@ -49,13 +57,26 @@ const App: React.FC = () => {
     // Load notebook
     const saved = localStorage.getItem('poplingo_notebook');
     if (saved) {
-      setNotebook(JSON.parse(saved));
+      try {
+        setNotebook(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load notebook", e);
+      }
     }
   }, []);
 
-  // Save notebook to localStorage
+  // Save notebook to localStorage with error handling for QuotaExceededError
   useEffect(() => {
-    localStorage.setItem('poplingo_notebook', JSON.stringify(notebook));
+    try {
+      localStorage.setItem('poplingo_notebook', JSON.stringify(notebook));
+    } catch (e) {
+      console.error("LocalStorage save failed:", e);
+      // If we are out of space, we could alert the user or fail silently, but we MUST NOT crash.
+      // A simple alert to warn the user.
+      if (notebook.length > 0) {
+         alert("Storage full! Some images might not be saved properly. Try deleting some words.");
+      }
+    }
   }, [notebook]);
 
   // Save language preferences whenever they change
@@ -106,7 +127,7 @@ const App: React.FC = () => {
       ]);
 
       const newEntry: DictionaryEntry = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         term: query,
         definition: data.definition || 'Definition unavailable',
         examples: data.examples || [],
@@ -132,8 +153,21 @@ const App: React.FC = () => {
     }
   };
 
-  const addToNotebook = () => {
-    if (currentResult && !notebook.find(n => n.id === currentResult.id)) {
+  // Toggle save state based on the word (term) rather than ID
+  // This handles cases where user searches the same word twice (new ID) but wants to toggle the existing saved one.
+  const handleToggleSave = () => {
+    if (!currentResult) return;
+
+    // Check case-insensitive match for the term
+    const existingIndex = notebook.findIndex(n => n.term.toLowerCase() === currentResult.term.toLowerCase());
+
+    if (existingIndex >= 0) {
+      // Remove it
+      const newNotebook = [...notebook];
+      newNotebook.splice(existingIndex, 1);
+      setNotebook(newNotebook);
+    } else {
+      // Add it
       setNotebook([currentResult, ...notebook]);
     }
   };
@@ -159,6 +193,11 @@ const App: React.FC = () => {
       setIsGeneratingStory(false);
     }
   };
+
+  // Helper to check if current result is saved
+  const isCurrentSaved = currentResult 
+    ? notebook.some(n => n.term.toLowerCase() === currentResult.term.toLowerCase()) 
+    : false;
 
   const renderHeader = () => (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100">
@@ -248,10 +287,10 @@ const App: React.FC = () => {
               <div className="text-gray-300 font-bold text-xl">No Image</div>
             )}
             <button 
-              onClick={addToNotebook}
+              onClick={handleToggleSave}
               className="absolute top-4 right-4 bg-white/50 backdrop-blur p-3 rounded-full hover:bg-white text-pop-pink transition-all shadow-sm z-20"
             >
-              <Save size={24} fill={notebook.find(n => n.id === currentResult.id) ? "currentColor" : "none"} />
+              <Save size={24} fill={isCurrentSaved ? "currentColor" : "none"} />
             </button>
           </div>
 
