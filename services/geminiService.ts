@@ -2,36 +2,13 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { DictionaryEntry, StoryResult } from "../types";
 import { playPCMAudio } from "./audioUtils";
 
-// Safely access process.env to prevent crashes in browser environments
-const getApiKey = () => {
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env.API_KEY || '';
-    }
-  } catch (e) {
-    console.warn("Failed to read process.env");
-  }
-  return '';
-};
-
-const API_KEY = getApiKey();
-
-// Singleton instance
-let ai: GoogleGenAI | null = null;
-
-const getAI = () => {
-  if (!ai) {
-    ai = new GoogleGenAI({ apiKey: API_KEY });
-  }
-  return ai;
-};
-
 export const lookupWord = async (
   text: string,
   nativeLang: string,
   targetLang: string
 ): Promise<Partial<DictionaryEntry>> => {
-  const client = getAI();
+  // Initialize client inside the function to ensure process.env.API_KEY is available
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
     Define the following text: "${text}".
@@ -45,7 +22,7 @@ export const lookupWord = async (
   `;
 
   try {
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -82,16 +59,13 @@ export const lookupWord = async (
 };
 
 export const generateVisualization = async (term: string): Promise<string | null> => {
-  const client = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const prompt = `A bright, fun, flat vector art style illustration representing the concept of "${term}". Simple shapes, vibrant pop colors (pink, yellow, cyan). White background.`;
     
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-image",
       contents: prompt,
-      config: {
-        // No special config needed for flash-image to get base64 in inlineData
-      }
     });
 
     // Iterate to find image part
@@ -110,9 +84,9 @@ export const generateVisualization = async (term: string): Promise<string | null
 };
 
 export const speakText = async (text: string, voiceName: string = 'Kore') => {
-  const client = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
       config: {
@@ -137,7 +111,7 @@ export const speakText = async (text: string, voiceName: string = 'Kore') => {
 };
 
 export const generateStory = async (words: string[], nativeLang: string): Promise<StoryResult> => {
-  const client = getAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const wordsStr = words.join(", ");
   const prompt = `
     Write a short, funny, and memorable story (max 150 words) that incorporates the following words: ${wordsStr}.
@@ -147,7 +121,7 @@ export const generateStory = async (words: string[], nativeLang: string): Promis
   `;
 
   try {
-    const response = await client.models.generateContent({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
